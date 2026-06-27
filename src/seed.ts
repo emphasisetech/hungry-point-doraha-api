@@ -26,8 +26,14 @@ async function seed() {
   });
 
   const passwordHash = await bcrypt.hash("HungryPoint@123", 10);
-  const admin = await User.create({ name: "Super Admin", email: "superadmin@hungrypoint.local", mobile: "+919876543210", role: "SUPER_ADMIN", branch: branch._id, passwordHash });
+  const admin = await User.create({ name: "Super Admin", username: "superadmin", email: "superadmin@hungrypoint.local", mobile: "+919876543210", role: "SUPER_ADMIN", branch: branch._id, passwordHash });
   await Employee.create({ user: admin._id, name: "Super Admin", mobile: "+919876543210", email: admin.email, role: "SUPER_ADMIN", branch: branch._id, salary: 50000, joiningDate: new Date() });
+  const staffUsers = await User.insertMany([
+    { name: "Bill Desk", username: "billdesk", email: "billdesk@hungrypoint.local", mobile: "+919876543211", role: "BILL_DESK", branch: branch._id, passwordHash },
+    { name: "Kitchen", username: "kitchen", email: "kitchen@hungrypoint.local", mobile: "+919876543212", role: "KITCHEN", branch: branch._id, passwordHash },
+    { name: "Manager", username: "manager", email: "manager@hungrypoint.local", mobile: "+919876543213", role: "MANAGER", branch: branch._id, passwordHash }
+  ]);
+  await Employee.insertMany(staffUsers.map((user) => ({ user: user._id, name: user.name, mobile: user.mobile, email: user.email, role: user.role, branch: branch._id, salary: user.role === "MANAGER" ? 35000 : 22000, joiningDate: new Date() })));
 
   const toppings = await Addon.insertMany([
     { name: "Extra Cheese", price: 35 },
@@ -68,7 +74,10 @@ async function seed() {
     { key: "invoiceRetentionDays", value: 30 }
   ]);
 
-  console.log("Seed complete. Login email: superadmin@hungrypoint.local");
+  console.log("Seed complete. Staff logins:");
+  console.log("manager / HungryPoint@123");
+  console.log("billdesk / HungryPoint@123");
+  console.log("kitchen / HungryPoint@123");
   process.exit(0);
 }
 

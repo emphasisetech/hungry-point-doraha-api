@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "seed": "tsx src/seed.ts",
+    "seed:staff": "tsx src/seedStaff.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

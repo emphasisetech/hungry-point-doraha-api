@@ -20,6 +20,8 @@ export const config = {
 export const roles = [
   "SUPER_ADMIN",
   "HEAD_OFFICE_ADMIN",
+  "MANAGER",
+  "BILL_DESK",
   "CASHIER",
   "ORDER_MANAGER",
   "COOK",

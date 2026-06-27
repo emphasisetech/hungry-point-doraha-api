@@ -1,15 +1,16 @@
 import { Router } from "express";
 import { z } from "zod";
 import { addDays, format } from "date-fns";
+import bcrypt from "bcryptjs";
 import { auth, allow, validate, type AuthedRequest } from "./middleware";
 import { Attendance, Branch, Coupon, Employee, Invoice, MenuCategory, MenuItem, Order, Payment, Review, SalarySlip, Setting, User } from "./models";
-import { calculateOrder, createInvoice, createOtp, generateSalarySlip, invoicePdfBuffer, verifyOtp, whatsappText } from "./services";
+import { calculateOrder, createInvoice, createOtp, generateSalarySlip, invoicePdfBuffer, verifyOtp, verifyPasswordLogin, whatsappText } from "./services";
 import { config } from "./config";
 import type { Server } from "socket.io";
 import type { Model } from "mongoose";
 
-const adminRoles = ["SUPER_ADMIN", "HEAD_OFFICE_ADMIN"] as const;
-const staffRoles = ["SUPER_ADMIN", "HEAD_OFFICE_ADMIN", "CASHIER", "ORDER_MANAGER"] as const;
+const adminRoles = ["SUPER_ADMIN", "HEAD_OFFICE_ADMIN", "MANAGER"] as const;
+const staffRoles = ["SUPER_ADMIN", "HEAD_OFFICE_ADMIN", "MANAGER", "BILL_DESK", "CASHIER", "ORDER_MANAGER"] as const;
 const kitchenRoles = ["SUPER_ADMIN", "HEAD_OFFICE_ADMIN", "COOK", "KITCHEN"] as const;
 
 export function routes(io: Server) {
@@ -27,6 +28,12 @@ export function routes(io: Server) {
   router.post("/auth/verify-otp", validate(z.object({ body: z.object({ email: z.string().email(), otp: z.string().min(4) }) })), async (req, res) => {
     const result = await verifyOtp(req.body.email, req.body.otp);
     if (!result) return res.status(401).json({ message: "Invalid OTP" });
+    res.json({ token: result.token, user: result.user });
+  });
+
+  router.post("/auth/login", validate(z.object({ body: z.object({ username: z.string().min(2), password: z.string().min(4) }) })), async (req, res) => {
+    const result = await verifyPasswordLogin(req.body.username, req.body.password);
+    if (!result) return res.status(401).json({ message: "Invalid username or password" });
     res.json({ token: result.token, user: result.user });
   });
 
@@ -113,7 +120,8 @@ export function routes(io: Server) {
     ["items", MenuItem],
     ["coupons", Coupon],
     ["reviews", Review],
-    ["settings", Setting]
+    ["settings", Setting],
+    ["users", User]
   ] as const;
 
   crud.forEach(([path, Model]) => {
@@ -121,9 +129,16 @@ export function routes(io: Server) {
       const q = req.query.search ? { name: { $regex: String(req.query.search), $options: "i" } } : {};
       res.json(await Model.find(q).sort("-createdAt").limit(Number(req.query.limit || 100)));
     });
-    router.post(`/admin/${path}`, auth, allow(...adminRoles), async (req, res) => res.status(201).json(await Model.create(req.body)));
+    router.post(`/admin/${path}`, auth, allow(...adminRoles), async (req, res) => {
+      const body = { ...req.body };
+      if (path === "users" && body.password) {
+        body.passwordHash = await bcrypt.hash(body.password, 10);
+        delete body.password;
+      }
+      res.status(201).json(await Model.create(body));
+    });
     router.patch(`/admin/${path}/:id`, auth, allow(...adminRoles), async (req, res) => res.json(await Model.findByIdAndUpdate(req.params.id, req.body, { new: true })));
-    router.delete(`/admin/${path}/:id`, auth, allow("SUPER_ADMIN"), async (req, res) => res.json(await Model.findByIdAndDelete(req.params.id)));
+    router.delete(`/admin/${path}/:id`, auth, allow(...adminRoles), async (req, res) => res.json(await Model.findByIdAndDelete(req.params.id)));
   });
 
   router.post("/attendance/check-in", auth, async (req: AuthedRequest, res) => {

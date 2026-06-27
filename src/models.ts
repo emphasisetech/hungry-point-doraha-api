@@ -15,6 +15,7 @@ export const Branch = model("Branch", new Schema({
 
 export const User = model("User", new Schema({
   name: requiredString,
+  username: { type: String, trim: true, lowercase: true, unique: true, sparse: true },
   email: { ...requiredString, lowercase: true, unique: true },
   mobile: String,
   passwordHash: String,

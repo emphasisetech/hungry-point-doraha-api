@@ -48,6 +48,18 @@ export async function verifyOtp(email: string, otp: string) {
   return { user, token: signToken(user as never) };
 }
 
+export async function verifyPasswordLogin(username: string, password: string) {
+  const lookup = username.toLowerCase().trim();
+  const user = await User.findOne({
+    active: true,
+    $or: [{ username: lookup }, { email: lookup }]
+  });
+  if (!user?.passwordHash) return null;
+  const ok = await bcrypt.compare(password, user.passwordHash);
+  if (!ok) return null;
+  return { user, token: signToken(user as never) };
+}
+
 export async function calculateOrder(input: {
   items: Array<{ menuItem: string; variant: string; quantity: number; toppings?: Array<{ name: string; price: number }>; notes?: string }>;
   couponCode?: string;
